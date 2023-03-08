@@ -1,7 +1,4 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using System.Reflection.Metadata;
-using CustomORM;
+﻿using CustomORM;using CustomORM.CustomEF;
 using CustomORM.Npsql;
 using Npgsql;
 using Document = CustomORM.Document;
@@ -14,7 +11,16 @@ FormattableString sqlQuery = $"""
 Select * from  "Documents" WHERE "Id" > {id};
 """;
 
+var context = new FullTextGamesDbContext();
+var docs = context.Documents.Where(x => x.Id > 1);
+var list = docs.ToList();
+
 foreach (var document in await adapterConnection.QueryAsync<Document>(sqlQuery, new CancellationToken()))
 {
     Console.WriteLine(document.Id + " " + document.Content);
+}
+
+public  class FullTextGamesDbContext : CustomContext
+{
+    public CustomDbSet<Document> Documents { get; set; }
 }

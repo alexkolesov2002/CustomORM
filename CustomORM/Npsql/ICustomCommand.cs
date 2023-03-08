@@ -1,6 +1,6 @@
 using System.Data;
 
-namespace CustomORM;
+namespace CustomORM.Npsql;
 
 public interface ICustomCommand : IAsyncDisposable
 {
