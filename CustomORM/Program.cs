@@ -1,4 +1,4 @@
-﻿using CustomORM;using CustomORM.CustomEF;
+﻿using CustomORM;
 using CustomORM.Npsql;
 using Npgsql;
 using Document = CustomORM.Document;
@@ -11,8 +11,13 @@ FormattableString sqlQuery = $"""
 Select * from  "Documents" WHERE "Id" > {id};
 """;
 
-var context = new FullTextGamesDbContext();
-var docs = context.Documents.Where(x => x.Id > 1);
+var context = new FullTextGamesDbContext(adapterConnection);
+var docs = context.Documents.Where(x => x.Id > 1)
+    .Select(x=> new Document()
+    {
+        Id = x.Id,
+        Content = x.Content
+    });
 var list = docs.ToList();
 
 foreach (var document in await adapterConnection.QueryAsync<Document>(sqlQuery, new CancellationToken()))
@@ -20,7 +25,7 @@ foreach (var document in await adapterConnection.QueryAsync<Document>(sqlQuery, 
     Console.WriteLine(document.Id + " " + document.Content);
 }
 
-public  class FullTextGamesDbContext : CustomContext
+foreach (var document in  list)
 {
-    public CustomDbSet<Document> Documents { get; set; }
+    Console.WriteLine(document.Id + " " + document.Content);
 }

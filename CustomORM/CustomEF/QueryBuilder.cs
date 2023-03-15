@@ -6,8 +6,15 @@ namespace CustomORM.CustomEF;
 
 public class QueryBuilder : ExpressionVisitor
 {
-    private Expression _selectListExpression, _whereExression;
+    private Expression? _selectListExpression;
+    private Expression? _whereExpression;
 
+    private readonly ICustomContext _context;
+
+    public QueryBuilder(ICustomContext context)
+    {
+        _context = context;
+    }
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (node.Method.IsGenericMethod)
@@ -28,7 +35,7 @@ public class QueryBuilder : ExpressionVisitor
 
     private void VisitorWhere(MethodCallExpression node)
     {
-        _whereExression = ((UnaryExpression)(node.Arguments[1])).Operand;
+        _whereExpression = ((UnaryExpression)(node.Arguments[1])).Operand;
     }
 
     private void VisitorSelect(MethodCallExpression node)
@@ -40,14 +47,19 @@ public class QueryBuilder : ExpressionVisitor
     {
         Visit(expression);
         var whereVisitor = new WhereVisitor();
-        whereVisitor.Visit(_whereExression);
+        whereVisitor.Visit(_whereExpression);
         var resultPredicate = whereVisitor.Result;
-        
+
         var selectVisitor = new SelectVisitor();
         selectVisitor.Visit(_selectListExpression);
         var selectList = selectVisitor.Result;
-        
-        return FormattableStringFactory.Create("");
+        var tableName = _context.ResolveTableName(expression.Type);
+        var query = $"""
+        Select {selectList} 
+        From {tableName}
+        WHERE {resultPredicate}
+        """;
+        return FormattableStringFactory.Create(query);
     }
 
     internal class StringExpression : Expression
@@ -59,7 +71,7 @@ public class QueryBuilder : ExpressionVisitor
             Type = type;
         }
 
-        public string String { get; }
+        private string String { get; }
         public override ExpressionType NodeType { get; }
         public override Type Type { get; }
     }

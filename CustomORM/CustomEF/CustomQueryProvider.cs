@@ -4,10 +4,19 @@ namespace CustomORM.CustomEF;
 
 public class CustomQueryProvider : IQueryProvider
 {
+
+    private readonly ICustomContext _customContext;
+
+    public CustomQueryProvider(ICustomContext customContext)
+    {
+        _customContext = customContext;
+    }
+
     public IQueryable CreateQuery(Expression expression)
     {
         return CreateQuery<object>(expression);
     }
+    
 
     public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
     {
@@ -21,10 +30,10 @@ public class CustomQueryProvider : IQueryProvider
 
     public TResult Execute<TResult>(Expression expression)
     {
-        var result = new QueryBuilder();
+        var result = new QueryBuilder(_customContext);
         var sql = result.Compile(expression);
 
-      return  QueryMapper.QueryAsync<TResult>(null, null, default).Result.Single();
+      return  _customContext.QueryAsync<TResult>(sql);
         
     }
 }

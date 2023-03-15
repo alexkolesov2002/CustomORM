@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Collections;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -15,7 +16,7 @@ public static class QueryMapper
     /// Достаем метод для его вызове в Expression (метод возвращает строковое значение)
     /// </summary>
     private static readonly MethodInfo? GetStringMethodInfo = typeof(DataReadeExtensions).GetMethod("TryGetString");
-    
+
     /// <summary>
     /// Достаем метод для его вызове в Expression (метод возвращает  значение типа Int32)
     /// </summary>
@@ -73,11 +74,26 @@ public static class QueryMapper
         return list;
     }
 
-/// <summary>
-/// Метод для создание объектов класса T
-/// </summary>
-/// <typeparam name="T">Класс</typeparam>
-/// <returns>возвращает делегат, который принимает в себя DataReader  и возвращает объект класса T</returns>
+
+    public static async Task<IList> QueryAsyncType(this ICustomConnection connection, FormattableString sql,
+        Type entityType,
+        CancellationToken cancellationToken)
+    {
+        var result =  (Task)typeof(QueryMapper).GetMethod("QueryAsync")!
+            .MakeGenericMethod(entityType)
+            .Invoke(null, new object [] { connection, sql, cancellationToken });
+
+        if (result != null) await result;
+        dynamic? res = result;
+        return res.Result;
+    }
+
+
+    /// <summary>
+    /// Метод для создание объектов класса T
+    /// </summary>
+    /// <typeparam name="T">Класс</typeparam>
+    /// <returns>возвращает делегат, который принимает в себя DataReader  и возвращает объект класса T</returns>
     private static Func<IDataReader, T> Build<T>()
     {
         var readerParam = Expression.Parameter(typeof(IDataReader)); // Параметр для Expression DataReader
@@ -85,18 +101,20 @@ public static class QueryMapper
         var newExpression = Expression.New(typeof(T)); // Expression создания новой сущности
         var memberInitExpression = Expression.MemberInit(newExpression,
             typeof(T).GetProperties()
-                .Select(prop => Expression.Bind(prop, 
+                .Select(prop => Expression.Bind(prop,
                     BuildReadColumnExpression(readerParam, prop)))); // Инициализация  свойств
 
-        return Expression.Lambda<Func<IDataReader, T>>(memberInitExpression, readerParam).Compile(); // создание делегата
+        return Expression.Lambda<Func<IDataReader, T>>(memberInitExpression, readerParam)
+            .Compile(); // создание делегата
     }
-/// <summary>
-/// Заполняет свойство объекта
-/// </summary>
-/// <param name="reader">DataReader </param>
-/// <param name="propertyInfo"> Информация о свойстве объекта</param>
-/// <returns>Возвращает Expression, который заполняет объект</returns>
-/// <exception cref="InvalidOperationException"></exception>
+
+    /// <summary>
+    /// Заполняет свойство объекта
+    /// </summary>
+    /// <param name="reader">DataReader </param>
+    /// <param name="propertyInfo"> Информация о свойстве объекта</param>
+    /// <returns>Возвращает Expression, который заполняет объект</returns>
+    /// <exception cref="InvalidOperationException"></exception>
     private static Expression BuildReadColumnExpression(ParameterExpression reader, PropertyInfo propertyInfo)
     {
         if (propertyInfo.PropertyType == typeof(string))
